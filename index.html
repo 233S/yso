@@ -1,25 +1,902 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>lorem ipsum</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/marx/2.0.4/marx.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YSO CTF — Internship Challenge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111418;
+    --border: #1e2530;
+    --accent: #00e5ff;
+    --accent2: #ff4d6d;
+    --accent3: #b8ff57;
+    --text: #d4dbe8;
+    --muted: #4a5568;
+    --web: #00e5ff;
+    --pwn: #ff4d6d;
+    --forensics: #b8ff57;
+    --misc: #c084fc;
+    --solved-bg: #0d1f17;
+    --solved-border: #22c55e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    background: rgba(10,12,15,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.3rem;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 16px rgba(0,229,255,0.5);
+  }
+  .logo span { color: var(--text); }
+
+  nav { display: flex; gap: 0.25rem; }
+  nav button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+  nav button:hover, nav button.active {
+    color: var(--accent);
+    background: rgba(0,229,255,0.08);
+  }
+
+  .score-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--accent3);
+    background: rgba(184,255,87,0.08);
+    border: 1px solid rgba(184,255,87,0.25);
+    padding: 0.35rem 0.9rem;
+    border-radius: 20px;
+  }
+
+  /* ── PAGES ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── HERO ── */
+  #page-home {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 64px);
+    text-align: center;
+    padding: 3rem 1rem;
+  }
+  #page-home.active { display: flex; }
+
+  .hero-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.1s ease forwards;
+  }
+  .hero-title {
+    font-size: clamp(2.5rem, 8vw, 5.5rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.25s ease forwards;
+  }
+  .hero-title .hl { color: var(--accent); }
+  .hero-title .hl2 { color: var(--accent2); }
+
+  .hero-sub {
+    font-size: 1rem;
+    color: var(--muted);
+    max-width: 480px;
+    line-height: 1.7;
+    margin-bottom: 2.5rem;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.4s ease forwards;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 2.5rem;
+    margin-bottom: 3rem;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.55s ease forwards;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 2rem;
+    color: var(--accent);
+    display: block;
+  }
+  .stat-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .btn-start {
+    background: var(--accent);
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 0.9rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.85rem 2.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 0 24px rgba(0,229,255,0.3);
+    opacity: 0;
+    animation: fadeUp 0.6s 0.7s ease forwards;
+  }
+  .btn-start:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 36px rgba(0,229,255,0.5);
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── CHALLENGES ── */
+  #page-challenges { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+  #page-challenges.active { display: block; }
+
+  .challenges-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .challenges-header h2 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .filter-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .filter-btn {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.4rem 1rem;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  .filter-btn[data-cat="Web"].active    { background: var(--web);      border-color: var(--web);      color: #000; }
+  .filter-btn[data-cat="Pwn"].active    { background: var(--pwn);      border-color: var(--pwn);      color: #fff; }
+  .filter-btn[data-cat="Forensics"].active { background: var(--forensics); border-color: var(--forensics); color: #000; }
+  .filter-btn[data-cat="Misc"].active   { background: var(--misc);     border-color: var(--misc);     color: #000; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--cat-color, var(--accent));
+    opacity: 0.6;
+  }
+  .card:hover {
+    border-color: var(--cat-color, var(--accent));
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .card.solved {
+    background: var(--solved-bg);
+    border-color: var(--solved-border);
+  }
+  .card.solved::before { background: var(--solved-border); opacity: 1; }
+
+  .card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.75rem; }
+  .card-cat {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.06);
+    color: var(--cat-color, var(--accent));
+  }
+  .card-pts {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--accent3);
+  }
+  .card-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .card-desc { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+  .card-diff {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 1rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .diff-easy .dot { background: #22c55e; }
+  .diff-medium .dot { background: #f59e0b; }
+  .diff-hard .dot { background: #ef4444; }
+
+  .solved-badge {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    font-size: 1.2rem;
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    max-width: 560px;
+    width: 100%;
+    padding: 2rem;
+    position: relative;
+    animation: slideIn 0.2s ease;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 1.3rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0.25rem;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  .modal-cat {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--cat-color, var(--accent));
+    margin-bottom: 0.5rem;
+  }
+  .modal-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 0.25rem; }
+  .modal-pts { font-family: 'Share Tech Mono', monospace; color: var(--accent3); font-size: 0.9rem; margin-bottom: 1.25rem; }
+  .modal-desc { font-size: 0.9rem; color: var(--text); line-height: 1.75; margin-bottom: 1.25rem; }
+
+  .modal-hint {
+    background: rgba(0,229,255,0.05);
+    border: 1px solid rgba(0,229,255,0.15);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+  }
+  .modal-hint strong { color: var(--accent); font-family: 'Share Tech Mono', monospace; }
+
+  .modal-hint code {
+    font-family: 'Share Tech Mono', monospace;
+    background: rgba(255,255,255,0.07);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+
+  .flag-row { display: flex; gap: 0.5rem; }
+  .flag-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+    padding: 0.7rem 1rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .flag-input:focus { border-color: var(--accent); }
+  .flag-input.error { border-color: var(--accent2); animation: shake 0.3s; }
+  .flag-input.ok { border-color: var(--solved-border); }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25%      { transform: translateX(-6px); }
+    75%      { transform: translateX(6px); }
+  }
+
+  .btn-submit {
+    background: var(--accent);
+    color: #000;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.7rem 1.4rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .btn-submit:hover { opacity: 0.85; }
+
+  .flag-msg {
+    margin-top: 0.75rem;
+    font-size: 0.82rem;
+    min-height: 1.2em;
+  }
+  .flag-msg.ok    { color: #22c55e; }
+  .flag-msg.error { color: var(--accent2); }
+
+  .solved-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #22c55e;
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 0.75rem 0;
+  }
+
+  /* ── SCOREBOARD ── */
+  #page-scoreboard { padding: 2rem; max-width: 800px; margin: 0 auto; }
+  #page-scoreboard.active { display: block; }
+  #page-scoreboard h2 { font-size: 1.5rem; font-weight: 800; margin-bottom: 1.5rem; }
+
+  .score-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 0.4rem;
+  }
+  .score-table th {
+    text-align: left;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0.5rem 1rem;
+  }
+  .score-table td {
+    padding: 0.85rem 1rem;
+    background: var(--surface);
+  }
+  .score-table tr td:first-child { border-radius: 8px 0 0 8px; }
+  .score-table tr td:last-child  { border-radius: 0 8px 8px 0; }
+  .rank-num { font-family: 'Share Tech Mono', monospace; color: var(--muted); }
+  .rank-1 { color: #fbbf24 !important; }
+  .rank-2 { color: #9ca3af !important; }
+  .rank-3 { color: #b45309 !important; }
+  .player-name { font-weight: 700; }
+  .player-pts { font-family: 'Share Tech Mono', monospace; color: var(--accent3); text-align: right; }
+  .solved-count { color: var(--muted); font-size: 0.85rem; text-align: center; }
+
+  .progress-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; width: 120px; }
+  .progress-bar { height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.3s; }
+
+  /* Pwn note */
+  .pwn-note {
+    background: rgba(255,77,109,0.07);
+    border: 1px solid rgba(255,77,109,0.25);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.82rem;
+    color: #ff8fa3;
+    line-height: 1.7;
+  }
+  .pwn-note strong { color: var(--accent2); font-family: 'Share Tech Mono', monospace; }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    header { padding: 0 1rem; }
+    .hero-stats { gap: 1.5rem; }
+    #page-challenges { padding: 1rem; }
+    .filter-bar { gap: 0.35rem; }
+    .filter-btn { padding: 0.35rem 0.7rem; }
+  }
+</style>
 </head>
-
 <body>
-<main>
-  <h1>lorem ipsum</h1>
- 
-  <p><a href= "https://osu.ppy.sh/users/2478009" target="_blank" >osu</a></p>
-  <p><a href= "https://twitter.com/kinyashik" target="_blank" >Twitter</a></p>
-  <p><a href= "https://bit.ly/2Os9Wpa" target="_blank" >eroge</a></p>
-  <p>lorem ipsum</p>
-  <p>Apex Legends(Diamond), osu!mania</p>
 
+<header>
+  <div class="logo">YSO<span>{CTF}</span></div>
+  <nav>
+    <button class="active" data-page="home">Home</button>
+    <button data-page="challenges">Challenges</button>
+    <button data-page="scoreboard">Scoreboard</button>
+  </nav>
+  <div class="score-badge">Score: <span id="total-score">0</span> pts</div>
+</header>
 
-</main>
+<!-- HOME -->
+<section id="page-home" class="page active">
+  <div class="hero-tag">// インターンシップ向け CTF</div>
+  <h1 class="hero-title">YSO <span class="hl">{</span><span class="hl2">CTF</span><span class="hl">}</span></h1>
+  <p class="hero-sub">Web・Pwn・Forensics・OSINT の4カテゴリで構成された学生向けセキュリティチャレンジ。フラグを見つけてスコアを積み上げろ。</p>
+  <div class="hero-stats">
+    <div class="stat"><span class="stat-num" id="stat-total">8</span><span class="stat-label">Challenges</span></div>
+    <div class="stat"><span class="stat-num" id="stat-solved">0</span><span class="stat-label">Solved</span></div>
+    <div class="stat"><span class="stat-num">4</span><span class="stat-label">Categories</span></div>
+  </div>
+  <button class="btn-start" onclick="showPage('challenges')">Start Hacking →</button>
+</section>
+
+<!-- CHALLENGES -->
+<section id="page-challenges" class="page">
+  <div class="challenges-header">
+    <h2>Challenges</h2>
+    <div class="filter-bar">
+      <button class="filter-btn active" data-cat="All">All</button>
+      <button class="filter-btn" data-cat="Web">Web</button>
+      <button class="filter-btn" data-cat="Pwn">Pwn</button>
+      <button class="filter-btn" data-cat="Forensics">Forensics</button>
+      <button class="filter-btn" data-cat="Misc">Misc</button>
+    </div>
+  </div>
+  <div class="grid" id="challenge-grid"></div>
+</section>
+
+<!-- SCOREBOARD -->
+<section id="page-scoreboard" class="page">
+  <h2>Scoreboard</h2>
+  <table class="score-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Player</th>
+        <th style="text-align:center">Solved</th>
+        <th>Progress</th>
+        <th style="text-align:right">Score</th>
+      </tr>
+    </thead>
+    <tbody id="score-tbody"></tbody>
+  </table>
+</section>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-cat" id="m-cat"></div>
+    <div class="modal-title" id="m-title"></div>
+    <div class="modal-pts" id="m-pts"></div>
+    <div class="modal-desc" id="m-desc"></div>
+    <div id="m-hint"></div>
+    <div id="m-pwn-note"></div>
+    <div id="m-flag-area"></div>
+  </div>
+</div>
 
 <script>
+// ─────────────────────────────────────────
+//  CHALLENGES DATA
+//  フラグは本番前に必ず変更してください
+// ─────────────────────────────────────────
+const CHALLENGES = [
+  // ── WEB ──
+  {
+    id: 'web01',
+    cat: 'Web',
+    title: 'Cookie Monster',
+    pts: 100,
+    diff: 'easy',
+    desc: 'ログインページが存在する。しかし正しいパスワードは知らない。ブラウザの開発者ツールを使って認証を突破せよ。',
+    hint: 'ブラウザの <code>Application → Cookies</code> を確認してみよう。<code>isAdmin</code> という名前のクッキーが存在する。',
+    flag: 'yso{c00k1e_m0nst3r_w4s_h3r3}',
+    pwnNote: null,
+  },
+  {
+    id: 'web02',
+    cat: 'Web',
+    title: 'Source Leak',
+    pts: 150,
+    diff: 'easy',
+    desc: 'あるウェブサイトのHTMLソースコードにフラグが隠されている。ページのソースを注意深く調べよ。',
+    hint: '<code>Ctrl+U</code> または右クリック → 「ページのソースを表示」でHTMLを確認してみよう。コメントアウトされている部分に注目。',
+    flag: 'yso{s0urc3_c0d3_n3v3r_l13s}',
+    pwnNote: null,
+  },
+  // ── PWN ──
+  {
+    id: 'pwn01',
+    cat: 'Pwn',
+    title: 'ret2win (Conceptual)',
+    pts: 200,
+    diff: 'medium',
+    desc: 'スタックバッファオーバーフローの基礎問題。脆弱な C プログラムが動作するサーバーに接続し、ret2win テクニックを使ってフラグを奪取せよ。\n\n実際の接続先: nc yso-ctf.example.com 1337',
+    hint: '<strong>ret2win とは？</strong><br>バッファを溢れさせて関数のリターンアドレスを win() 関数のアドレスに書き換えるテクニック。<br>スタック上のバッファサイズを確認し、パディング + アドレスを送り込もう。<code>python3 -c "print(\'A\'*64 + addr)"</code>',
+    flag: 'yso{r3t2w1n_buff3r_0v3rfl0w_master}',
+    pwnNote: '⚠️ Pwn 問題は本来、別途サーバーが必要です。このデモではフラグを直接入力して学習用に使用してください。実際の運用では Docker コンテナ等でサービスを立ち上げてください。',
+  },
+  {
+    id: 'pwn02',
+    cat: 'Pwn',
+    title: 'Format String 101',
+    pts: 250,
+    diff: 'hard',
+    desc: 'printf の書式文字列脆弱性を利用してスタック上の値を読み出せ。サーバーに任意の文字列を入力できる。\n\n実際の接続先: nc yso-ctf.example.com 1338',
+    hint: '<strong>書式文字列攻撃とは？</strong><br><code>printf(user_input)</code> のような実装がある場合、<code>%x</code> や <code>%s</code> を入力することでスタックの内容を読み出せる。<br><code>%p.%p.%p.%p</code> などを試してみよう。',
+    flag: 'yso{f0rm4t_str1ng_1s_d4ng3r0us}',
+    pwnNote: '⚠️ Pwn 問題は本来、別途サーバーが必要です。このデモではフラグを直接入力して学習用に使用してください。',
+  },
+  // ── FORENSICS ──
+  {
+    id: 'for01',
+    cat: 'Forensics',
+    title: 'Hidden in Plain Sight',
+    pts: 100,
+    diff: 'easy',
+    desc: '以下の文字列はある変換がされている。元の文字列（フラグ）を復元せよ。\n\n<code>eXNve2Izc2U2NF8xc19lNHN5fQ==</code>',
+    hint: '<strong>エンコードの種類を見抜こう。</strong><br>末尾の <code>=</code> は Base64 エンコードのパディングを示している。<br><code>echo "..." | base64 -d</code> または CyberChef を使ってデコードしてみよう。',
+    flag: 'yso{b3se64_1s_e4sy}',
+    pwnNote: null,
+  },
+  {
+    id: 'for02',
+    cat: 'Forensics',
+    title: 'PCAP Mystery',
+    pts: 200,
+    diff: 'medium',
+    desc: 'ネットワークキャプチャファイルを解析し、HTTP通信の中からフラグを見つけ出せ。\n（このデモではヒントからフラグを推測してください）\n\nCapture file: <code>traffic.pcap</code>',
+    hint: '<strong>Wireshark の使い方</strong><br>フィルタに <code>http</code> と入力して HTTP トラフィックのみを表示。<br><code>Follow → HTTP Stream</code> でリクエスト/レスポンスの全体を確認しよう。<br>GETパラメータや Authorization ヘッダを重点的に調べよ。',
+    flag: 'yso{p4ck3t_4nalys1s_pr0}',
+    pwnNote: null,
+  },
+  // ── MISC / OSINT ──
+  {
+    id: 'misc01',
+    cat: 'Misc',
+    title: 'Google Dorking',
+    pts: 100,
+    diff: 'easy',
+    desc: 'OSINT の基本。検索エンジンの高度な検索演算子（Google Dork）を使いこなし、特定の情報を見つけ出す技術を習得せよ。\n\nヒントにある検索クエリを使って、このCTFのフラグフォーマットに一致する文字列を見つけよ。',
+    hint: '<strong>Google Dork 演算子の例</strong><br><code>site:</code> 特定サイト内を検索<br><code>filetype:</code> 特定ファイル形式を検索<br><code>intitle:</code> タイトルで検索<br><code>inurl:</code> URLで検索<br><br>フラグ: <code>yso{g00gl3_d0rk1ng_1s_fun}</code>',
+    flag: 'yso{g00gl3_d0rk1ng_1s_fun}',
+    pwnNote: null,
+  },
+  {
+    id: 'misc02',
+    cat: 'Misc',
+    title: 'QR Code Recovery',
+    pts: 150,
+    diff: 'medium',
+    desc: 'ノイズが加えられた損傷QRコードを復元し、中のフラグを読み取れ。QRコードはエラー訂正機能を持っている。\n（このデモでは復元済みのメッセージを以下に記載する）\n\n復元されたメッセージ: <code>ZmxhZzp5c297cXJfYzBkM19yM2NvdjNyeX0=</code>',
+    hint: '復元されたメッセージはさらにエンコードされている。どのエンコードか見抜いてデコードしよう。<br><br>CyberChef: <a href="https://gchq.github.io/CyberChef/" target="_blank" style="color:var(--accent)">https://gchq.github.io/CyberChef/</a>',
+    flag: 'yso{qr_c0d3_r3cov3ry}',
+    pwnNote: null,
+  },
+];
+
+// ─────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────
+const solved = new Set(JSON.parse(localStorage.getItem('yso_solved') || '[]'));
+const playerName = 'You';
+
+function saveSolved() {
+  localStorage.setItem('yso_solved', JSON.stringify([...solved]));
+}
+
+function getTotalScore() {
+  return CHALLENGES.filter(c => solved.has(c.id)).reduce((s, c) => s + c.pts, 0);
+}
+
+function updateScoreDisplay() {
+  document.getElementById('total-score').textContent = getTotalScore();
+  document.getElementById('stat-solved').textContent = solved.size;
+}
+
+// ─────────────────────────────────────────
+//  CATEGORY COLORS
+// ─────────────────────────────────────────
+const CAT_COLOR = {
+  Web: 'var(--web)',
+  Pwn: 'var(--pwn)',
+  Forensics: 'var(--forensics)',
+  Misc: 'var(--misc)',
+};
+
+// ─────────────────────────────────────────
+//  RENDER GRID
+// ─────────────────────────────────────────
+let currentFilter = 'All';
+
+function renderGrid() {
+  const grid = document.getElementById('challenge-grid');
+  const filtered = currentFilter === 'All'
+    ? CHALLENGES
+    : CHALLENGES.filter(c => c.cat === currentFilter);
+
+  grid.innerHTML = filtered.map(c => {
+    const isSolved = solved.has(c.id);
+    return `
+      <div class="card ${isSolved ? 'solved' : ''}" 
+           style="--cat-color:${CAT_COLOR[c.cat]}"
+           onclick="openModal('${c.id}')">
+        ${isSolved ? '<div class="solved-badge">✅</div>' : ''}
+        <div class="card-header">
+          <span class="card-cat">${c.cat}</span>
+          <span class="card-pts">${c.pts} pts</span>
+        </div>
+        <div class="card-title">${c.title}</div>
+        <div class="card-desc">${c.desc.split('\n')[0]}</div>
+        <div class="card-diff diff-${c.diff}">
+          <span class="dot"></span>${c.diff}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────
+//  MODAL
+// ─────────────────────────────────────────
+let currentChallenge = null;
+
+function openModal(id) {
+  const c = CHALLENGES.find(x => x.id === id);
+  if (!c) return;
+  currentChallenge = c;
+  const isSolved = solved.has(c.id);
+
+  document.getElementById('m-cat').textContent = c.cat;
+  document.getElementById('m-cat').style.color = CAT_COLOR[c.cat];
+  document.getElementById('m-title').textContent = c.title;
+  document.getElementById('m-pts').textContent = `${c.pts} pts · ${c.diff}`;
+
+  // Format desc with line breaks
+  document.getElementById('m-desc').innerHTML = c.desc.replace(/\n/g, '<br>');
+
+  // Hint
+  document.getElementById('m-hint').innerHTML = c.hint
+    ? `<div class="modal-hint"><strong>💡 Hint</strong><br>${c.hint}</div>`
+    : '';
+
+  // Pwn note
+  document.getElementById('m-pwn-note').innerHTML = c.pwnNote
+    ? `<div class="pwn-note"><strong>[!]</strong> ${c.pwnNote}</div>`
+    : '';
+
+  // Flag area
+  if (isSolved) {
+    document.getElementById('m-flag-area').innerHTML =
+      `<div class="solved-notice">✅ Solved! +${c.pts} pts</div>`;
+  } else {
+    document.getElementById('m-flag-area').innerHTML = `
+      <div class="flag-row">
+        <input class="flag-input" id="flag-input" type="text" 
+               placeholder="yso{...}" autocomplete="off" spellcheck="false"
+               onkeydown="if(event.key==='Enter') submitFlag()">
+        <button class="btn-submit" onclick="submitFlag()">Submit</button>
+      </div>
+      <div class="flag-msg" id="flag-msg"></div>`;
+  }
+
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => {
+    const inp = document.getElementById('flag-input');
+    if (inp) inp.focus();
+  }, 100);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  currentChallenge = null;
+}
+
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+function submitFlag() {
+  if (!currentChallenge) return;
+  const input = document.getElementById('flag-input');
+  const msg   = document.getElementById('flag-msg');
+  const val   = input.value.trim();
+
+  if (!val) return;
+
+  if (val === currentChallenge.flag) {
+    input.classList.remove('error');
+    input.classList.add('ok');
+    msg.textContent = `🎉 Correct! +${currentChallenge.pts} pts`;
+    msg.className = 'flag-msg ok';
+    solved.add(currentChallenge.id);
+    saveSolved();
+    updateScoreDisplay();
+    renderGrid();
+    renderScoreboard();
+
+    setTimeout(() => {
+      document.getElementById('m-flag-area').innerHTML =
+        `<div class="solved-notice">✅ Solved! +${currentChallenge.pts} pts</div>`;
+    }, 1200);
+  } else {
+    input.classList.remove('ok');
+    input.classList.add('error');
+    msg.textContent = '❌ Wrong flag. Try again!';
+    msg.className = 'flag-msg error';
+    setTimeout(() => input.classList.remove('error'), 400);
+  }
+}
+
+// ─────────────────────────────────────────
+//  SCOREBOARD
+// ─────────────────────────────────────────
+// ダミープレイヤーでスコアボードを賑やかにする
+const DUMMY_PLAYERS = [
+  { name: 'alice_sec',  solved: ['web01','web02','misc01'],          pts: 350 },
+  { name: 'b1n4ry_k1d', solved: ['pwn01','for01','misc01'],          pts: 400 },
+  { name: 'h4ck3r_420', solved: ['web01','misc01','misc02','for01'], pts: 450 },
+];
+
+function renderScoreboard() {
+  const myScore = getTotalScore();
+  const mySolved = [...solved];
+
+  const all = [
+    ...DUMMY_PLAYERS.map(p => ({ name: p.name, pts: p.pts, solvedCount: p.solved.length })),
+    { name: playerName + ' (You)', pts: myScore, solvedCount: mySolved.length },
+  ].sort((a, b) => b.pts - a.pts || b.solvedCount - a.solvedCount);
+
+  const maxPts = CHALLENGES.reduce((s, c) => s + c.pts, 0);
+
+  document.getElementById('score-tbody').innerHTML = all.map((p, i) => {
+    const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
+    const pct = maxPts > 0 ? Math.round(p.pts / maxPts * 100) : 0;
+    return `
+      <tr>
+        <td><span class="rank-num ${rankClass}">${i + 1}</span></td>
+        <td><span class="player-name">${p.name}</span></td>
+        <td class="solved-count">${p.solvedCount} / ${CHALLENGES.length}</td>
+        <td>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar" style="width:${pct}%"></div>
+          </div>
+        </td>
+        <td class="player-pts">${p.pts}</td>
+      </tr>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────
+//  NAVIGATION
+// ─────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelector(`nav button[data-page="${name}"]`).classList.add('active');
+  if (name === 'scoreboard') renderScoreboard();
+}
+
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => showPage(btn.dataset.page));
+});
+
+// Filter buttons
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.cat;
+    renderGrid();
+  });
+});
+
+// ─────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────
+renderGrid();
+updateScoreDisplay();
 </script>
 </body>
 </html>
